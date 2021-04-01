@@ -25,7 +25,6 @@ export class VillageForecast {
     const { header } = res;
     const { resultCode, resultMsg } = header;
     if (resultCode !== "00") {
-      console.log(resultMsg);
       return null;
     }
     return res;
@@ -84,7 +83,6 @@ export class VillageForecast {
     const qs = querystring.stringify(params);
 
     const url = `${VillageForecast.baseURL}/getUltraSrtNcst?${qs}`;
-    console.log(url);
     const rawResponse = await axios.get(url);
     const { body } = this.parseRawResponse(rawResponse.data);
 
@@ -100,6 +98,7 @@ export class VillageForecast {
         return result;
       },
       {
+        url: url,
         baseDate: null,
         items: [],
       }
@@ -140,12 +139,10 @@ export class VillageForecast {
     const qs = querystring.stringify(params);
 
     const url = `${VillageForecast.baseURL}/getUltraSrtFcst?${qs}`;
-    console.log(url);
 
     const rawResponse = await axios.get(url);
 
     const { header, body } = this.parseRawResponse(rawResponse.data);
-    console.log(body.items.item);
 
     const result = body.items.item.reduce(
       (result, item) => {
@@ -163,6 +160,7 @@ export class VillageForecast {
         return result;
       },
       {
+        url: url,
         baseDate: null,
         forecastDate: [],
       }
@@ -214,7 +212,6 @@ export class VillageForecast {
     const qs = querystring.stringify(params);
 
     const url = `${VillageForecast.baseURL}/getVilageFcst?${qs}`;
-    console.log(url);
 
     const rawResponse = await axios.get(url);
 
@@ -236,6 +233,7 @@ export class VillageForecast {
         return result;
       },
       {
+        url: url,
         baseDate: null,
         forecastDate: [],
       }
@@ -273,7 +271,6 @@ export class VillageForecast {
     const qs = querystring.stringify(params);
 
     const url = `${VillageForecast.baseURL}/getFcstVersion?${qs}`;
-    console.log("url : ", url);
 
     const rawResponse = await axios.get(url);
     return rawResponse.data;
@@ -313,7 +310,6 @@ export class VillageForecast {
     theta *= sn;
     rs.nx = floor(ra * sin(theta) + VillageForecast.XO + 0.5);
     rs.ny = floor(ro - ra * cos(theta) + VillageForecast.YO + 0.5);
-    console.log(rs);
     return rs;
   }
 
@@ -361,23 +357,9 @@ export class VillageForecast {
     let alon = theta / sn + olon;
     rs.lat = alat * RADDEG;
     rs.lng = alon * RADDEG;
-    console.log(rs);
     return rs;
   }
 }
-
-async function main() {
-  const villageForecast = new VillageForecast();
-  villageForecast.setServiceKey(
-    "/eU/Y//rNBokLkGmOD9GyVv8SuuO9UjhA2rQUVXBmob5C9M3Jr7cKj5rHFVdrnL9yZ5dhuAOGHp5gVHUTkD7dA=="
-  );
-  const result = await villageForecast.getUltraSrtNcst(37.4871167, 126.7274377);
-  // const result = await villageForecast.getUltraSrtFcst(37.4871167, 126.7274377);
-  // const result = await villageForecast.getVilageFcst(37.4871167, 126.7274377);
-  // const result = await villageForecast.getFcstVersion('ODAM');
-  console.dir(result, { depth: null });
-}
-// main();
 
 export const MapWeatherCategory = {
   POP: "강수확률(%)",
@@ -478,11 +460,13 @@ export interface WeatherGrid {
 }
 
 export interface NCastResult {
+  url: string;
   baseDate: string;
   items: WeatherItem[];
 }
 
 export interface FCastResult {
+  url: string;
   baseDate: string;
   forecastDate: FCastResultDate[];
 }
