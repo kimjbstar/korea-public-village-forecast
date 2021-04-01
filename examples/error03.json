@@ -1,8 +1,0 @@
-{
-    "response": {
-        "header": {
-            "resultCode": "10",
-            "resultMsg": "파라미터가 잘못되엇습니다."
-        }
-    }
-}

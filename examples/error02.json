@@ -1,8 +1,0 @@
-{
-    "response": {
-        "header": {
-            "resultCode": "10",
-            "resultMsg": "base_time는 4자리 입니다."
-        }
-    }
-}
