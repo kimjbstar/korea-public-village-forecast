@@ -2,18 +2,18 @@
   "name": "korea-public-village-forecast",
   "version": "0.0.1",
   "description": "",
-  "main": "index.js",
+  "main": "dist/index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "tsc": "tsc",
-    "dev": "ts-node src/index.ts",
-    "practice": "ts-node src/practice.ts"
+    "build": "tsc",
+    "dev": "ts-node src/runner.ts"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "devDependencies": {
     "@types/axios": "^0.14.0",
+    "@types/dotenv": "^8.2.0",
     "@types/moment": "^2.13.0",
     "@types/node": "^14.14.37",
     "@types/urlencode": "^1.1.2",
@@ -22,6 +22,7 @@
   },
   "dependencies": {
     "axios": "^0.21.1",
+    "dotenv": "^8.2.0",
     "moment": "^2.29.1",
     "querystring": "^0.2.1"
   }
