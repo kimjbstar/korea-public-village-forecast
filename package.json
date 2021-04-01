@@ -1,16 +1,29 @@
 {
   "name": "korea-public-village-forecast",
-  "version": "0.0.1",
-  "description": "",
+  "version": "0.0.1-beta.1",
+  "description": "기상청 동네예보 조회서비스 OpenAPI node.js(TypeScript) wrapper",
+  "keywords": [
+    "기상청",
+    "동네예보",
+    "날씨",
+    "openAPI",
+    "공공데이터"
+  ],
+  "homepage": "https://github.com/kimjbstar/korea-public-village-forecast",
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/kimjbstar/korea-public-village-forecast.git"
+  },
+  "author": {
+    "name": "kimjbstar",
+    "email": "kimjbstar@gmail.com"
+  },
+  "license": "MIT",
   "main": "dist/index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
     "build": "tsc",
     "dev": "ts-node src/runner.ts"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
   "devDependencies": {
     "@types/axios": "^0.14.0",
     "@types/dotenv": "^8.2.0",
@@ -25,5 +38,8 @@
     "dotenv": "^8.2.0",
     "moment": "^2.29.1",
     "querystring": "^0.2.1"
+  },
+  "engines": {
+    "node": ">=10"
   }
 }
