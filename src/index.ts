@@ -13,6 +13,7 @@ export class VillageForecast {
   static XO = 43; // 기준점 X좌표(GRID)
   static YO = 136; // 기준점 Y좌표(GRID)
   static baseURL = "http://apis.data.go.kr/1360000/VilageFcstInfoService";
+  static TIMEOUT = 1500;
 
   private serviceKey = null;
 
@@ -21,6 +22,9 @@ export class VillageForecast {
   }
 
   parseRawResponse(rawResponse): RawResponse {
+    if (!rawResponse["response"]) {
+      return null;
+    }
     const res: RawResponse = rawResponse["response"];
     const { header } = res;
     const { resultCode, resultMsg } = header;
@@ -81,30 +85,41 @@ export class VillageForecast {
       ny: ny,
     };
     const qs = querystring.stringify(params);
-
     const url = `${VillageForecast.baseURL}/getUltraSrtNcst?${qs}`;
-    const rawResponse = await axios.get(url);
-    const { body } = this.parseRawResponse(rawResponse.data);
 
-    const result = body.items.item.reduce(
-      (result, item) => {
-        if (!result.baseDate) {
-          result.baseDate = moment(`${item.baseDate} ${item.baseTime}`).format(
-            "YYYY-MM-DD HH:mm"
-          );
+    let result = {
+      url: url,
+      baseDate: null,
+      items: [],
+    };
+
+    try {
+      const rawResponse = await axios.get(url, {
+        timeout: VillageForecast.TIMEOUT,
+      });
+      const { body } = this.parseRawResponse(rawResponse.data);
+
+      result = body.items.item.reduce(
+        (result, item) => {
+          if (!result.baseDate) {
+            result.baseDate = moment(
+              `${item.baseDate} ${item.baseTime}`
+            ).format("YYYY-MM-DD HH:mm");
+          }
+          const row = this.parseItemRow(item);
+          result.items.push(row);
+          return result;
+        },
+        {
+          url: url,
+          baseDate: null,
+          items: [],
         }
-        const row = this.parseItemRow(item);
-        result.items.push(row);
-        return result;
-      },
-      {
-        url: url,
-        baseDate: null,
-        items: [],
-      }
-    );
-
-    return result;
+      );
+    } catch (e) {
+    } finally {
+      return result;
+    }
   }
 
   // 2.초단기예보
