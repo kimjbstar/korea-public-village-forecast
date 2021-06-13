@@ -1,5 +1,5 @@
 ##  개요
-[공공데이터포털](data.go.kr)에서 제공하는 [기상청_동네예보 조회서비스](https://www.data.go.kr/data/15057682/openapi.do)를 더 용이하기 사용할 수 있도록 wrapping한 라이브러리입니다.
+[공공데이터포털](https://data.go.kr)에서 제공하는 [기상청_동네예보 조회서비스](https://www.data.go.kr/data/15057682/openapi.do)를 더 용이하기 사용할 수 있도록 wrapping한 라이브러리입니다.
 
 ## Feature
 - 🕖 조회시간 파라미터 편의성 개선
