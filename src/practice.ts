@@ -1,10 +1,8 @@
-import { VillageForecast } from ".";
-import * as dotenv from "dotenv";
+import { VillageForecast } from "."
 
 async function run() {
-  const dotenvResult = dotenv.config();
   const villageForecast = new VillageForecast({
-    serviceKey: dotenvResult.parsed.VILLAGE_FORECAST_KEY,
+    serviceKey: "/eU/Y//rNBokLkGmOD9GyVv8SuuO9UjhA2rQUVXBmob5C9M3Jr7cKj5rHFVdrnL9yZ5dhuAOGHp5gVHUTkD7dA==",
     timeout: 3000,
   });
 
