@@ -22,7 +22,7 @@
   "main": "dist/index.js",
   "scripts": {
     "build": "tsc",
-    "dev": "ts-node src/runner.ts"
+    "practice": "ts-node src/practice.ts"
   },
   "devDependencies": {
     "@types/axios": "^0.14.0",

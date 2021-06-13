@@ -1,6 +1,7 @@
 import axios from "axios";
 import * as querystring from "querystring";
 import * as moment from "moment";
+import { FCastResult, HTTPFetchResult, Location, NCastResult, RawItem, RawResponse, WeatherGrid, WeatherItem } from "./interface";
 
 export class VillageForecast {
   // LCC DFS 좌표변환을 위한 기초 자료
@@ -13,12 +14,20 @@ export class VillageForecast {
   static XO = 43; // 기준점 X좌표(GRID)
   static YO = 136; // 기준점 Y좌표(GRID)
   static baseURL = "http://apis.data.go.kr/1360000/VilageFcstInfoService";
-  static TIMEOUT = 1500;
 
-  private serviceKey = null;
+  private timeout
+  private serviceKey
+  private showOrigin
 
-  setServiceKey(src) {
-    this.serviceKey = src;
+  constructor(param: {
+    serviceKey: string,
+    timeout?: number
+    showOrigin?: boolean
+  }) {
+    const { serviceKey, timeout = 2000, showOrigin = false } = param
+    this.serviceKey = serviceKey
+    this.timeout = timeout
+    this.showOrigin = showOrigin
   }
 
   parseRawResponse(rawResponse): RawResponse {
@@ -54,241 +63,256 @@ export class VillageForecast {
     return row;
   }
 
+  async fetch(input: {
+    path: string,
+    params: Record<string, string | number>
+  }): Promise<HTTPFetchResult> {
+    if (!this.serviceKey) {
+      throw new Error('key가 없습니다.')
+    }
+    const qs = querystring.stringify(Object.assign(input.params, {
+      serviceKey: this.serviceKey,
+      dataType: "JSON",
+    }));
+    const url = `${VillageForecast.baseURL}/${input.path}?${qs}`;
+    return {
+      url: url,
+      response: await axios.get(url, {
+        timeout: this.timeout,
+      })
+    }
+  }
+
+  getBaseTime(param: {
+    src: string, minute?: number
+  }): moment.Moment {
+    const { src, minute } = param
+    let current = moment(src);
+    if (minute === undefined) {
+      return current;
+    }
+
+    // 발표기준 "분"이 지나지 않았으므로 한시간 전 데이터 조회
+    if (moment().isSame(moment(src), 'h') && moment(src).minutes() < minute) {
+      current = current.subtract(1, 'hour');
+    }
+
+    return current
+  }
+
   // 1. 초단기실황조회
   async getUltraSrtNcst(
-    lat: number,
-    lng: number,
-    datetime?,
-    numOfRows = 1024,
-    pageNo = 1
-  ): Promise<NCastResult> {
-    // 6시 발표(정시단위) -매시각 40분 이후 호출
-    let baseDatetime: moment.Moment = null;
-    if (!datetime) {
-      baseDatetime = moment();
-      if (baseDatetime.minutes() < 40) {
-        baseDatetime.subtract(1, "hour");
-      }
-    } else {
-      baseDatetime = moment(datetime);
+    param: {
+      lat: number,
+      lng: number,
+      datetime?: string,
+      numOfRows?: number
+      pageNo?: number
     }
-    const { nx, ny } = this.latLngToGrid(lat, lng);
-
-    const params = {
-      serviceKey: this.serviceKey,
-      pageNo: pageNo,
-      numOfRows: numOfRows,
-      dataType: "JSON",
-      base_date: baseDatetime.format("YYYYMMDD"),
-      base_time: baseDatetime.format("HHmm"),
-      nx: nx,
-      ny: ny,
-    };
-    const qs = querystring.stringify(params);
-    const url = `${VillageForecast.baseURL}/getUltraSrtNcst?${qs}`;
-
-    let result = {
-      url: url,
-      baseDate: null,
-      items: [],
-    };
-
+  ): Promise<NCastResult> {
     try {
-      const rawResponse = await axios.get(url, {
-        timeout: VillageForecast.TIMEOUT,
-      });
-      const { body } = this.parseRawResponse(rawResponse.data);
+      const { lat, lng, datetime, numOfRows = 1024, pageNo = 1 } = param
+      const baseDatetime = this.getBaseTime({
+        src: datetime,
+        minute: 40
+      })
+      const { nx, ny } = this.latLngToGrid(lat, lng);
 
-      result = body.items.item.reduce(
+      const { url, response } = await this.fetch({
+        path: 'getUltraSrtNcst',
+        params: {
+          serviceKey: this.serviceKey,
+          pageNo: pageNo,
+          numOfRows: numOfRows,
+          base_date: baseDatetime.format("YYYYMMDD"),
+          base_time: baseDatetime.format("HHmm"),
+          nx: nx,
+          ny: ny,
+        }
+      })
+
+      const { body } = this.parseRawResponse(response.data);
+      const [firstItem] = body.items.item;
+      const baseDate = moment(`${firstItem.baseDate} ${firstItem.baseTime}`).format(
+        "YYYY-MM-DD HH:mm"
+      )
+
+      const items = body.items.item.reduce(
         (result, item) => {
-          if (!result.baseDate) {
-            result.baseDate = moment(
-              `${item.baseDate} ${item.baseTime}`
-            ).format("YYYY-MM-DD HH:mm");
-          }
           const row = this.parseItemRow(item);
-          result.items.push(row);
+          result.push(row);
           return result;
         },
-        {
-          url: url,
-          baseDate: null,
-          items: [],
-        }
+        []
       );
+
+      return {
+        url: url,
+        baseDate: baseDate,
+        items: items,
+        origin: this.showOrigin ? response.data : null
+      };
+
     } catch (e) {
-    } finally {
-      return result;
+      console.log(e.stack)
+      return null
     }
   }
 
   // 2.초단기예보
   async getUltraSrtFcst(
-    lat: number,
-    lng: number,
-    datetime?,
-    numOfRows = 1024,
-    pageNo = 1
-  ): Promise<FCastResult> {
-    let baseDatetime: moment.Moment = null;
-    if (!datetime) {
-      baseDatetime = moment();
-      if (baseDatetime.minutes() < 45) {
-        baseDatetime.subtract(1, "hour");
-      }
-    } else {
-      baseDatetime = moment(datetime);
+    param: {
+      lat: number,
+      lng: number,
+      datetime?,
+      numOfRows?: number
+      pageNo?: number
     }
-    const { nx, ny } = this.latLngToGrid(lat, lng);
+  ): Promise<FCastResult> {
+    try {
+      const { lat, lng, datetime, numOfRows = 1024, pageNo = 1 } = param
 
-    const params = {
-      serviceKey: this.serviceKey,
-      pageNo: pageNo,
-      numOfRows: numOfRows,
-      dataType: "JSON",
-      base_date: baseDatetime.format("YYYYMMDD"),
-      base_time: baseDatetime.format("HHmm"),
-      nx: nx,
-      ny: ny,
-    };
-    const qs = querystring.stringify(params);
+      const baseDatetime = this.getBaseTime({
+        src: datetime,
+        minute: 45
+      })
+      const { nx, ny } = this.latLngToGrid(lat, lng);
 
-    const url = `${VillageForecast.baseURL}/getUltraSrtFcst?${qs}`;
+      const { url, response } = await this.fetch({
+        path: 'getUltraSrtFcst',
+        params: {
+          serviceKey: this.serviceKey,
+          pageNo: pageNo,
+          numOfRows: numOfRows,
+          base_date: baseDatetime.format("YYYYMMDD"),
+          base_time: baseDatetime.format("HHmm"),
+          nx: nx,
+          ny: ny,
+        }
+      })
 
-    const rawResponse = await axios.get(url);
+      const { body } = this.parseRawResponse(response.data);
+      const [firstItem] = body.items.item;
+      const baseDate = moment(`${firstItem.baseDate} ${firstItem.baseTime}`).format(
+        "YYYY-MM-DD HH:mm"
+      )
 
-    const { header, body } = this.parseRawResponse(rawResponse.data);
-
-    const result = body.items.item.reduce(
-      (result, item) => {
-        if (!result.baseDate) {
-          result.baseDate = moment(`${item.baseDate} ${item.baseTime}`).format(
+      const forecasts = body.items.item.reduce(
+        (result, item) => {
+          const forecastDate = moment(`${item.fcstDate} ${item.fcstTime}`).format(
             "YYYY-MM-DD HH:mm"
           );
-        }
-        const key = item.fcstDate + item.fcstTime;
-        if (!result.forecastDate[key]) {
-          result.forecastDate[key] = [];
-        }
-        const row = this.parseItemRow(item);
-        result.forecastDate[key].push(row);
-        return result;
-      },
-      {
+          if (!result[forecastDate]) {
+            result[forecastDate] = [];
+          }
+          const row = this.parseItemRow(item);
+          result[forecastDate].push(row);
+          return result;
+        },
+        []
+      );
+
+      return {
         url: url,
-        baseDate: null,
-        forecastDate: [],
+        baseDate: baseDate,
+        forecasts: forecasts,
+        origin: this.showOrigin ? response.data : null
       }
-    );
+    } catch (e) {
+      console.log(e)
+      return null
+    }
 
-    result.forecastDate = Object.entries(result.forecastDate).reduce(
-      (result, [k, v]) => {
-        const newRow = {
-          date: moment(k, "YYYYMMDDHHmm").format("YYYY-MM-DD HH:mm"),
-          items: v,
-        };
-        result.push(newRow);
-        return result;
-      },
-      []
-    );
-
-    return result;
   }
 
   // 3. 동네예보조회
   async getVilageFcst(
-    lat: number,
-    lng: number,
-    datetime?,
-    numOfRows = 1024,
-    pageNo = 1
-  ): Promise<FCastResult> {
-    let baseDatetime: moment.Moment = null;
-    if (!datetime) {
-      baseDatetime = moment();
-      // TODO
-    } else {
-      baseDatetime = moment(datetime);
+    param: {
+      lat: number,
+      lng: number,
+      datetime?: string,
+      numOfRows?: number
+      pageNo?: number
     }
+  ): Promise<FCastResult> {
+    const { lat, lng, datetime, numOfRows = 1024, pageNo = 1 } = param
 
+    const baseDatetime = this.getBaseTime({
+      src: datetime,
+    })
     const { nx, ny } = this.latLngToGrid(lat, lng);
 
-    const params = {
-      serviceKey: this.serviceKey,
-      pageNo: pageNo,
-      numOfRows: numOfRows,
-      dataType: "JSON",
-      base_date: baseDatetime.format("YYYYMMDD"),
-      base_time: baseDatetime.format("HHmm"),
-      nx: nx,
-      ny: ny,
-    };
-    const qs = querystring.stringify(params);
+    const { url, response } = await this.fetch({
+      path: 'getVilageFcst',
+      params: {
+        serviceKey: this.serviceKey,
+        pageNo: pageNo,
+        numOfRows: numOfRows,
+        base_date: baseDatetime.format("YYYYMMDD"),
+        base_time: baseDatetime.format("HHmm"),
+        nx: nx,
+        ny: ny,
+      }
+    })
 
-    const url = `${VillageForecast.baseURL}/getVilageFcst?${qs}`;
+    const { body } = this.parseRawResponse(response.data);
+    const [firstItem] = body.items.item;
+    const baseDate = moment(`${firstItem.baseDate} ${firstItem.baseTime}`).format(
+      "YYYY-MM-DD HH:mm"
+    )
 
-    const rawResponse = await axios.get(url);
-
-    const { body } = this.parseRawResponse(rawResponse.data);
-
-    const result = body.items.item.reduce(
+    const forecasts = body.items.item.reduce(
       (result, item) => {
-        if (!result.baseDate) {
-          result.baseDate = moment(`${item.baseDate} ${item.baseTime}`).format(
-            "YYYY-MM-DD HH:mm"
-          );
-        }
-        const key = item.fcstDate + item.fcstTime;
-        if (!result.forecastDate[key]) {
-          result.forecastDate[key] = [];
+        const forecastDate = moment(`${item.fcstDate} ${item.fcstTime}`).format(
+          "YYYY-MM-DD HH:mm"
+        );
+        if (!result[forecastDate]) {
+          result[forecastDate] = [];
         }
         const row = this.parseItemRow(item);
-        result.forecastDate[key].push(row);
-        return result;
-      },
-      {
-        url: url,
-        baseDate: null,
-        forecastDate: [],
-      }
-    );
-
-    result.forecastDate = Object.entries(result.forecastDate).reduce(
-      (result, [k, v]) => {
-        const newRow = {
-          date: moment(k, "YYYYMMDDHHmm").format("YYYY-MM-DD HH:mm"),
-          items: v,
-        };
-        result.push(newRow);
+        result[forecastDate].push(row);
         return result;
       },
       []
     );
 
-    return result;
+    return {
+      url: url,
+      baseDate: baseDate,
+      forecasts: forecasts,
+      origin: this.showOrigin ? response.data : null
+    }
   }
 
   // 4. 동네예보조회
   async getFcstVersion(
-    type: "ODAM" | "VSRT" | "SHRT",
-    numOfRows = 1024,
-    pageNo = 1
+    param: {
+      type: "ODAM" | "VSRT" | "SHRT",
+      datetime?: string,
+      numOfRows?: number,
+      pageNo?: number
+    }
   ) {
-    const params = {
-      serviceKey: this.serviceKey,
-      pageNo: pageNo,
-      numOfRows: numOfRows,
-      dataType: "JSON",
-      ftype: type,
-      basedatetime: moment().format("YYYYMMDDHHmm"),
-    };
-    const qs = querystring.stringify(params);
+    const { type, datetime, numOfRows = 1024, pageNo = 1 } = param
 
-    const url = `${VillageForecast.baseURL}/getFcstVersion?${qs}`;
+    const { url, response } = await this.fetch({
+      path: 'getFcstVersion',
+      params: {
+        pageNo: pageNo,
+        numOfRows: numOfRows,
+        ftype: type,
+        basedatetime: moment(datetime).format("YYYYMMDDHHmm"),
+      }
+    })
 
-    const rawResponse = await axios.get(url);
-    return rawResponse.data;
+    const { body } = this.parseRawResponse(response.data);
+    const [firstItem] = body.items.item
+
+    return {
+      url: url,
+      result: firstItem,
+      origin: this.showOrigin ? response.data : null
+    }
   }
 
   // LCC DFS 좌표변환 ( 위경도->좌표(grid) )
@@ -374,7 +398,10 @@ export class VillageForecast {
     rs.lng = alon * RADDEG;
     return rs;
   }
+
+
 }
+
 
 export const MapWeatherCategory = {
   POP: "강수확률(%)",
@@ -424,69 +451,3 @@ export const MapWindDirection = [
   "W-NW",
   "NW-N",
 ];
-
-export interface RawItem {
-  baseDate: string;
-  baseTime: string;
-  category: string;
-  nx: number;
-  ny: number;
-  obsrValue: string;
-  fcstDate?: string;
-  fcstTime?: string;
-  fcstValue?: string;
-}
-
-export interface RawBody {
-  dataType: "JSON" | "XML";
-  items: {
-    item: RawItem[];
-  };
-  pageNo: number;
-  numOfRows: number;
-  totalCount: number;
-}
-
-export interface RawHeader {
-  resultCode: string;
-  resultMsg: string;
-}
-
-export interface RawResponse {
-  header: RawHeader;
-  body: RawBody;
-}
-
-export interface WeatherItem {
-  category: string;
-  value: string;
-  desc: string;
-  valueDesc?: string;
-}
-
-export interface Location {
-  lat: number;
-  lng: number;
-}
-
-export interface WeatherGrid {
-  nx: number;
-  ny: number;
-}
-
-export interface NCastResult {
-  url: string;
-  baseDate: string;
-  items: WeatherItem[];
-}
-
-export interface FCastResult {
-  url: string;
-  baseDate: string;
-  forecastDate: FCastResultDate[];
-}
-
-export interface FCastResultDate {
-  date: string;
-  items: WeatherItem[];
-}
