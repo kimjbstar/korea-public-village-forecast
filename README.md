@@ -1,11 +1,19 @@
 ##  개요
 [공공데이터포털](https://data.go.kr)에서 제공하는 [기상청_동네예보 조회서비스](https://www.data.go.kr/data/15057682/openapi.do)를 더 용이하기 사용할 수 있도록 wrapping한 라이브러리입니다.
 
+---
 ## Feature
-- 🕖 조회시간 파라미터 편의성 개선
-- 🗺️ grid 변환 로직 내장
-- 📃 결과 그룹핑 처리 및 설명 추가
+🕖 조회시간 파라미터 편의성 개선
+- 현재 시간 defualt 값 적용, 발표 시간을 고려한 이전 데이터 조회
 
+🗺️ grid 변환 로직 내장
+- 위경도 -> 격자 테이블 데이터를 관리할 필요 없이 계산하여 자동으로 추론
+
+📃 결과 가공 및 설명 추가
+- 분석 및 애플리케이션에 적용을 용이하기 하기 위해 날짜별 그룹핑, 코드별 맵핑 및 description 추가
+- 가공 전 origin 데이터 조회 on/off 기능 
+
+---
 ## Example
 ```js
   const villageForecast = new VillageForecast({
@@ -45,8 +53,12 @@
   origin: null
 }
 ```
-
+---
 ## Options
-- ServiceKey : 부여받은 서비스 키(필수)
-- timeout : 기상청 통신 타임아웃 (기본값: 2000ms)
-- showOrigin : 원본 데이터 표시 여부
+ServiceKey : 부여받은 서비스 키(필수)
+
+timeout : 기상청 통신 타임아웃 (기본값: 2000ms)
+- 간헐적으로 기상청 측 response가 매우 느린 경우가 있어 이 부분을 핸들링 할 수 있습니다.
+
+showOrigin : 원본 데이터 표시 여부
+- 가공된 데이터 대신 이전 원본 데이터를 제공합니다.
