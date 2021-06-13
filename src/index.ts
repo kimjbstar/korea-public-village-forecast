@@ -4,10 +4,9 @@ import * as moment from "moment";
 import { FCastResult, HTTPFetchResult, Location, NCastResult, RawItem, RawResponse, WeatherGrid, WeatherItem } from "./interface";
 
 export class VillageForecast {
-  // LCC DFS 좌표변환을 위한 기초 자료
-  static RE = 6371.00877; // 지구 반경(km)
-  static GRID = 5.0; // 격자 간격(km)
-  static SLAT1 = 30.0; // 투영 위도1(degree)
+  static RE = 6371.00877;
+  static GRID = 5.0;
+  static SLAT1 = 30.0;
   static SLAT2 = 60.0; // 투영 위도2(degree)
   static OLON = 126.0; // 기준점 경도(degree)
   static OLAT = 38.0; // 기준점 위도(degree)
@@ -19,6 +18,12 @@ export class VillageForecast {
   private serviceKey
   private showOrigin
 
+  /**
+   * 기초 데이터 셋업
+   * @param {string} ServiceKey 부여 받은 서비스 키
+   * @param {number} timeout 기상청 통신 타임아웃 (기본값: 2000ms)
+   * @param {boolean} showOrigin 원본 데이터 표시 여부
+   */
   constructor(param: {
     serviceKey: string,
     timeout?: number
@@ -30,7 +35,7 @@ export class VillageForecast {
     this.showOrigin = showOrigin
   }
 
-  parseRawResponse(rawResponse): RawResponse {
+  private parseRawResponse(rawResponse): RawResponse {
     if (!rawResponse["response"]) {
       return null;
     }
@@ -43,7 +48,7 @@ export class VillageForecast {
     return res;
   }
 
-  parseItemRow(item: RawItem): WeatherItem {
+  private parseItemRow(item: RawItem): WeatherItem {
     const value = item.obsrValue ? item.obsrValue : item.fcstValue;
     const row = {
       category: item.category,
@@ -63,7 +68,7 @@ export class VillageForecast {
     return row;
   }
 
-  async fetch(input: {
+  private async fetch(input: {
     path: string,
     params: Record<string, string | number>
   }): Promise<HTTPFetchResult> {
@@ -100,8 +105,15 @@ export class VillageForecast {
     return current
   }
 
-  // 1. 초단기실황조회
-  async getUltraSrtNcst(
+  /**
+   * @description 초단기실황조회 - 실황정보를 조회하기 위해 발표일자, 발표시각, 예보지점 X 좌표, 예보지점 Y 좌표의 조회 조건으로 자료구분코드, 실황값, 발표일자, 발표시각, 예보지점 X 좌표, 예보지점 Y 좌표의 정보를 조회하는 기능
+   * @param {string}  lat 위도
+   * @param {string=} lng 경도
+   * @param {string} datetime 조회 기준 시간
+   * @param {number} [numOfRows="1024"] 조회 row 수
+   * @return {NCastResult} URL, 조회 기준 시간, 데이터, 원본
+   */
+  public async getUltraSrtNcst(
     param: {
       lat: number,
       lng: number,
@@ -159,12 +171,19 @@ export class VillageForecast {
     }
   }
 
-  // 2.초단기예보
-  async getUltraSrtFcst(
+  /**
+   * @description 초단기예보조회 - 초단기예보정보를 조회하기 위해 발표일자, 발표시각, 예보지점 X 좌표, 예보지점 Y 좌표의 조회 조건으로 자료구분코드, 예보값, 발표일자, 발표시각, 예보지점 X 좌표, 예보지점 Y 좌표의 정보를 조회하는 기능
+   * @param {string}  lat 위도
+   * @param {string=} lng 경도
+   * @param {string} datetime 조회 기준 시간
+   * @param {number} [numOfRows="1024"] 조회 row 수
+   * @return {FCastResult} URL, 조회 기준 시간, 데이터, 원본
+   */
+  public async getUltraSrtFcst(
     param: {
       lat: number,
       lng: number,
-      datetime?,
+      datetime?: string,
       numOfRows?: number
       pageNo?: number
     }
@@ -225,7 +244,14 @@ export class VillageForecast {
 
   }
 
-  // 3. 동네예보조회
+  /**
+   * @description 동네예보조회 - 동네예보 정보를 조회하기 위해 발표일자, 발표시각, 예보지점 X좌표, 예보지점 Y 좌표의 조회 조건으로 발표일자, 발표시각, 자료구분문자, 예보 값, 예보일자, 예보시각, 예보지점 X 좌표, 예보지점 Y 좌표의 정보를 조회하는 기능
+   * @param {string}  lat 위도
+   * @param {string=} lng 경도
+   * @param {string} datetime 조회 기준 시간
+   * @param {number} [numOfRows="1024"] 조회 row 수
+   * @return {FCastResult} URL, 조회 기준 시간, 데이터, 원본
+   */
   async getVilageFcst(
     param: {
       lat: number,
@@ -284,7 +310,13 @@ export class VillageForecast {
     }
   }
 
-  // 4. 동네예보조회
+  /**
+   * @description 예보버전조회 - 동네예보정보조회서비스 각각의 오퍼레이션(초단기실황, 초단기예보, 동네예보)들의 수정된 예보 버전을 파악하기 위해 예보버전을 조회하는 기능
+   * @param {string}  type 파일구분 (ODAM:동네예보실황, VSRT:동네예보초단기, SHRT:돈에예보단기)
+   * @param {string=} lng 경도
+   * @param {string} datetime 조회 기준 시간
+   * @param {number} [numOfRows="1024"] 조회 row 수
+   */
   async getFcstVersion(
     param: {
       type: "ODAM" | "VSRT" | "SHRT",
@@ -315,7 +347,12 @@ export class VillageForecast {
     }
   }
 
-  // LCC DFS 좌표변환 ( 위경도->좌표(grid) )
+  /**
+   * @description LCC DFS 좌표변환 - 위경도->좌표(grid), 일반적인 위경도로부터 기상청에서 사용하는 grid 단위의 x,y 좌표를 얻습니다.
+   * @param {number} lat 경도
+   * @param {number} lng 위도
+   * @return nx, ny
+   */
   latLngToGrid(lat: number, lng: number): WeatherGrid {
     const { PI, tan, log, cos, pow, floor, sin, sqrt, atan, abs, atan2 } = Math;
     const DEGRAD = Math.PI / 180.0;
@@ -352,7 +389,12 @@ export class VillageForecast {
     return rs;
   }
 
-  // LCC DFS 좌표변환 ( 좌표(grid)->위경도 )
+  /**
+   * @description LCC DFS 좌표변환 ( 좌표(grid)->위경도 ), 기상청에서 사용하는 grid 단위의 x,y 좌표로부터 위경도를 얻습니다.
+   * @param {number} lat 경도
+   * @param {number} lng 위도
+   * @return nx, ny
+   */
   gridToLatLng(nx: number, ny: number): Location {
     const { PI, tan, log, cos, pow, floor, sin, sqrt, atan, abs, atan2 } = Math;
     const DEGRAD = PI / 180.0;
@@ -398,7 +440,6 @@ export class VillageForecast {
     rs.lng = alon * RADDEG;
     return rs;
   }
-
 
 }
 

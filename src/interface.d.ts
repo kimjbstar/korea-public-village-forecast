@@ -50,6 +50,7 @@ export interface WeatherGrid {
     ny: number;
 }
 
+
 export interface NCastResult {
     url: string;
     baseDate: string;
