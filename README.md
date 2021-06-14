@@ -16,16 +16,18 @@
 ---
 ## Example
 ```js
-  const villageForecast = new VillageForecast({
-    serviceKey: VILLAGE_FORECAST_KEY,
-  });
+import { VillageForecast } from "korea-public-village-forecast"
 
-  // 초단기실황조회
-  const result = await villageForecast.getUltraSrtNcst({
-    lat: 37.4871167,
-    lng: 126.7274377,
-    datetime: '2021-05-02 09:00'
-  });
+const villageForecast = new VillageForecast({
+  serviceKey: VILLAGE_FORECAST_KEY,
+});
+
+// 초단기실황조회
+const result = await villageForecast.getUltraSrtNcst({
+  lat: 37.4871167,
+  lng: 126.7274377,
+  datetime: '2021-05-02 09:00'
+});
 ```
 ```js
 {
