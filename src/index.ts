@@ -37,13 +37,13 @@ export class VillageForecast {
 
   private parseRawResponse(rawResponse): RawResponse {
     if (!rawResponse["response"]) {
-      return null;
+      throw new Error('response 데이터가 잘못되었습니다.');
     }
     const res: RawResponse = rawResponse["response"];
     const { header } = res;
     const { resultCode, resultMsg } = header;
     if (resultCode !== "00") {
-      return null;
+      throw new Error(`[${resultCode}]:[${resultMsg}]`);
     }
     return res;
   }
