@@ -1,6 +1,6 @@
 {
   "name": "korea-public-village-forecast",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "기상청 동네예보 조회서비스 OpenAPI node.js(TypeScript) wrapper",
   "keywords": [
     "기상청",
