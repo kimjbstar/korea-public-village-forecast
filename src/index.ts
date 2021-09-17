@@ -1,5 +1,4 @@
 import axios from "axios";
-import * as querystring from "querystring";
 import * as moment from "moment";
 import {
   FCastResult,
@@ -84,12 +83,13 @@ export class VillageForecast {
     if (!this.serviceKey) {
       throw new Error("key가 없습니다.");
     }
-    const qs = querystring.stringify(
-      Object.assign(input.params, {
-        serviceKey: this.serviceKey,
-        dataType: "JSON",
-      })
-    );
+    const qs = new URLSearchParams({
+      serviceKey: this.serviceKey,
+      dataType: "JSON",
+    });
+    for (const [k, v] of Object.entries(input.params)) {
+      qs.set(k, v.toString());
+    }
     const url = `${VillageForecast.baseURL}/${input.path}?${qs}`;
     return {
       url: url,
@@ -153,7 +153,7 @@ export class VillageForecast {
       const { body } = this.parseRawResponse(response.data);
       const [firstItem] = body.items.item;
       const baseDate = moment(
-        `${firstItem.baseDate} ${firstItem.baseTime}`
+        `${firstItem.baseDate} ${firstItem.baseTime}`,
       ).format("YYYY-MM-DD HH:mm");
 
       const items = body.items.item.reduce((result, item) => {
@@ -214,12 +214,12 @@ export class VillageForecast {
       const { body } = this.parseRawResponse(response.data);
       const [firstItem] = body.items.item;
       const baseDate = moment(
-        `${firstItem.baseDate} ${firstItem.baseTime}`
+        `${firstItem.baseDate} ${firstItem.baseTime}`,
       ).format("YYYY-MM-DD HH:mm");
 
       const forecasts = body.items.item.reduce((result, item) => {
         const forecastDate = moment(`${item.fcstDate} ${item.fcstTime}`).format(
-          "YYYY-MM-DD HH:mm"
+          "YYYY-MM-DD HH:mm",
         );
         if (!result[forecastDate]) {
           result[forecastDate] = [];
@@ -279,12 +279,12 @@ export class VillageForecast {
     const { body } = this.parseRawResponse(response.data);
     const [firstItem] = body.items.item;
     const baseDate = moment(
-      `${firstItem.baseDate} ${firstItem.baseTime}`
+      `${firstItem.baseDate} ${firstItem.baseTime}`,
     ).format("YYYY-MM-DD HH:mm");
 
     const forecasts = body.items.item.reduce((result, item) => {
       const forecastDate = moment(`${item.fcstDate} ${item.fcstTime}`).format(
-        "YYYY-MM-DD HH:mm"
+        "YYYY-MM-DD HH:mm",
       );
       if (!result[forecastDate]) {
         result[forecastDate] = [];
