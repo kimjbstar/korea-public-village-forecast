@@ -20,7 +20,7 @@ export class VillageForecast {
   static OLAT = 38.0; // 기준점 위도(degree)
   static XO = 43; // 기준점 X좌표(GRID)
   static YO = 136; // 기준점 Y좌표(GRID)
-  static baseURL = "http://apis.data.go.kr/1360000/VilageFcstInfoService";
+  static baseURL = "http://apis.data.go.kr/1360000/VilageFcstInfoService_2.0";
 
   private timeout;
   private serviceKey;
@@ -91,11 +91,12 @@ export class VillageForecast {
       qs.set(k, v.toString());
     }
     const url = `${VillageForecast.baseURL}/${input.path}?${qs}`;
+    const response = await axios.get(url, {
+      timeout: this.timeout,
+    });
     return {
-      url: url,
-      response: await axios.get(url, {
-        timeout: this.timeout,
-      }),
+      url,
+      response,
     };
   }
 
