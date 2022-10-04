@@ -76,10 +76,10 @@ export class VillageForecast {
     return row;
   }
 
-  private async fetch(input: {
+  setURL(input: {
     path: string;
     params: Record<string, string | number>;
-  }): Promise<HTTPFetchResult> {
+  }): string {
     if (!this.serviceKey) {
       throw new Error("key가 없습니다.");
     }
@@ -90,7 +90,10 @@ export class VillageForecast {
     for (const [k, v] of Object.entries(input.params)) {
       qs.set(k, v.toString());
     }
-    const url = `${VillageForecast.baseURL}/${input.path}?${qs}`;
+    return `${VillageForecast.baseURL}/${input.path}?${qs}`;
+  }
+
+  private async fetch(url: string): Promise<HTTPFetchResult> {
     const response = await axios.get(url, {
       timeout: this.timeout,
     });
@@ -130,26 +133,27 @@ export class VillageForecast {
     numOfRows?: number;
     pageNo?: number;
   }): Promise<NCastResult> {
-    try {
-      const { lat, lng, datetime, numOfRows = 1024, pageNo = 1 } = param;
-      const baseDatetime = this.getBaseTime({
-        src: datetime,
-        minute: 40,
-      });
-      const { nx, ny } = this.latLngToGrid(lat, lng);
+    const { lat, lng, datetime, numOfRows = 1024, pageNo = 1 } = param;
+    const baseDatetime = this.getBaseTime({
+      src: datetime,
+      minute: 40,
+    });
+    const { nx, ny } = this.latLngToGrid(lat, lng);
 
-      const { url, response } = await this.fetch({
-        path: "getUltraSrtNcst",
-        params: {
-          serviceKey: this.serviceKey,
-          pageNo: pageNo,
-          numOfRows: numOfRows,
-          base_date: baseDatetime.format("YYYYMMDD"),
-          base_time: baseDatetime.format("HHmm"),
-          nx: nx,
-          ny: ny,
-        },
-      });
+    const url = this.setURL({
+      path: "getUltraSrtNcst",
+      params: {
+        serviceKey: this.serviceKey,
+        pageNo,
+        numOfRows,
+        base_date: baseDatetime.format("YYYYMMDD"),
+        base_time: baseDatetime.format("HHmm"),
+        nx,
+        ny,
+      },
+    });
+    try {
+      const { response } = await this.fetch(url);
 
       const { body } = this.parseRawResponse(response.data);
       const [firstItem] = body.items.item;
@@ -164,14 +168,22 @@ export class VillageForecast {
       }, []);
 
       return {
-        url: url,
-        baseDate: baseDate,
-        items: items,
+        url,
+        baseDate,
+        items,
         origin: this.showOrigin ? response.data : null,
       };
     } catch (e) {
-      console.log(e.stack);
-      return null;
+      return {
+        url,
+        baseDate: null,
+        items: [],
+        origin: null,
+        error: {
+          message: e.toString(),
+          stack: e.stack,
+        },
+      };
     }
   }
 
@@ -190,27 +202,27 @@ export class VillageForecast {
     numOfRows?: number;
     pageNo?: number;
   }): Promise<FCastResult> {
+    const { lat, lng, datetime, numOfRows = 1024, pageNo = 1 } = param;
+
+    const baseDatetime = this.getBaseTime({
+      src: datetime,
+      minute: 45,
+    });
+    const { nx, ny } = this.latLngToGrid(lat, lng);
+    const url = this.setURL({
+      path: "getUltraSrtFcst",
+      params: {
+        serviceKey: this.serviceKey,
+        pageNo,
+        numOfRows,
+        base_date: baseDatetime.format("YYYYMMDD"),
+        base_time: baseDatetime.format("HHmm"),
+        nx,
+        ny,
+      },
+    });
     try {
-      const { lat, lng, datetime, numOfRows = 1024, pageNo = 1 } = param;
-
-      const baseDatetime = this.getBaseTime({
-        src: datetime,
-        minute: 45,
-      });
-      const { nx, ny } = this.latLngToGrid(lat, lng);
-
-      const { url, response } = await this.fetch({
-        path: "getUltraSrtFcst",
-        params: {
-          serviceKey: this.serviceKey,
-          pageNo: pageNo,
-          numOfRows: numOfRows,
-          base_date: baseDatetime.format("YYYYMMDD"),
-          base_time: baseDatetime.format("HHmm"),
-          nx: nx,
-          ny: ny,
-        },
-      });
+      const { response } = await this.fetch(url);
 
       const { body } = this.parseRawResponse(response.data);
       const [firstItem] = body.items.item;
@@ -231,14 +243,22 @@ export class VillageForecast {
       }, []);
 
       return {
-        url: url,
-        baseDate: baseDate,
-        forecasts: forecasts,
+        url,
+        baseDate,
+        forecasts,
         origin: this.showOrigin ? response.data : null,
       };
     } catch (e) {
-      console.log(e);
-      return null;
+      return {
+        url,
+        baseDate: null,
+        forecasts: [],
+        origin: null,
+        error: {
+          message: e.toString(),
+          stack: e.stack,
+        },
+      };
     }
   }
 
@@ -264,43 +284,58 @@ export class VillageForecast {
     });
     const { nx, ny } = this.latLngToGrid(lat, lng);
 
-    const { url, response } = await this.fetch({
+    const url = this.setURL({
       path: "getVilageFcst",
       params: {
         serviceKey: this.serviceKey,
-        pageNo: pageNo,
-        numOfRows: numOfRows,
+        pageNo,
+        numOfRows,
         base_date: baseDatetime.format("YYYYMMDD"),
         base_time: baseDatetime.format("HHmm"),
-        nx: nx,
-        ny: ny,
+        nx,
+        ny,
       },
     });
 
-    const { body } = this.parseRawResponse(response.data);
-    const [firstItem] = body.items.item;
-    const baseDate = moment(
-      `${firstItem.baseDate} ${firstItem.baseTime}`,
-    ).format("YYYY-MM-DD HH:mm");
+    try {
+      const { response } = await this.fetch(url);
 
-    const forecasts = body.items.item.reduce((result, item) => {
-      const forecastDate = moment(`${item.fcstDate} ${item.fcstTime}`).format(
-        "YYYY-MM-DD HH:mm",
-      );
-      if (!result[forecastDate]) {
-        result[forecastDate] = [];
-      }
-      const row = this.parseItemRow(item);
-      result[forecastDate].push(row);
-      return result;
-    }, []);
+      const { body } = this.parseRawResponse(response.data);
+      const [firstItem] = body.items.item;
+      const baseDate = moment(
+        `${firstItem.baseDate} ${firstItem.baseTime}`,
+      ).format("YYYY-MM-DD HH:mm");
 
-    return {
-      url: url,
-      baseDate: baseDate,
-      forecasts: forecasts,
-      origin: this.showOrigin ? response.data : null,
-    };
+      const forecasts = body.items.item.reduce((result, item) => {
+        const forecastDate = moment(`${item.fcstDate} ${item.fcstTime}`).format(
+          "YYYY-MM-DD HH:mm",
+        );
+        if (!result[forecastDate]) {
+          result[forecastDate] = [];
+        }
+        const row = this.parseItemRow(item);
+        result[forecastDate].push(row);
+        return result;
+      }, []);
+
+      return {
+        url,
+        baseDate,
+        forecasts,
+        origin: this.showOrigin ? response.data : null,
+      };
+    } catch (e) {
+      return {
+        url: null,
+        baseDate: null,
+        forecasts: [],
+        origin: null,
+        error: {
+          message: e.toString(),
+          stack: e.stack,
+        },
+      };
+    }
   }
 
   /**
@@ -318,24 +353,41 @@ export class VillageForecast {
   }) {
     const { type, datetime, numOfRows = 1024, pageNo = 1 } = param;
 
-    const { url, response } = await this.fetch({
+    const baseDatetime = this.getBaseTime({
+      src: datetime,
+    });
+
+    const url = this.setURL({
       path: "getFcstVersion",
       params: {
-        pageNo: pageNo,
-        numOfRows: numOfRows,
+        pageNo,
+        numOfRows,
         ftype: type,
-        basedatetime: moment(datetime).format("YYYYMMDDHHmm"),
+        basedatetime: moment(baseDatetime).format("YYYYMMDDHHmm"),
       },
     });
 
-    const { body } = this.parseRawResponse(response.data);
-    const [firstItem] = body.items.item;
+    try {
+      const { response } = await this.fetch(url);
+      const { body } = this.parseRawResponse(response.data);
+      const [firstItem] = body.items.item;
 
-    return {
-      url: url,
-      result: firstItem,
-      origin: this.showOrigin ? response.data : null,
-    };
+      return {
+        url,
+        result: firstItem,
+        origin: this.showOrigin ? response.data : null,
+      };
+    } catch (e) {
+      return {
+        url: url,
+        result: null,
+        origin: null,
+        error: {
+          message: e.toString(),
+          stack: e.stack,
+        },
+      };
+    }
   }
 
   /**
